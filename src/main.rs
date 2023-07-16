@@ -26,12 +26,15 @@ impl SmartHouse {
         self.rooms.clone()
     }
 
-    fn devices(&self, room: &str) -> [String; 3] {
+    fn devices(&self, room: &str) -> [String; 2] {
         // Размер возвращаемого массива можно выбрать самостоятельно
         // todo!("список устройств в комнате `room`")
         match room {
-            "кухня" => ["1".to_string(), "2".to_string(), "3".to_string()],
-            "спальня" => ["1".to_string(), "2".to_string(), "3".to_string()],
+            "кухня" => ["Розетка для чайника".to_string(), "?".to_string()],
+            "спальня" => [
+                "Розетка для светильника".to_string(),
+                "Термометр детский".to_string(),
+            ],
             _ => panic!("Неизвестное название комнаты: {}", room),
         }
     }
@@ -46,6 +49,7 @@ impl SmartHouse {
         for room in self.get_rooms().iter() {
             for device in self.devices(room).iter() {
                 report.push_str(&device_info_provider.get_device_state(room, device));
+                report.push('\n') // Перевод строки
             }
         }
         report
@@ -55,19 +59,26 @@ impl SmartHouse {
 // ***** Пример использования библиотеки умный дом:
 
 trait SmartDeviceStateInfo {
+    fn get_name(&self) -> &String;
     fn get_state_info(&self) -> String;
 }
 
 // Пользовательские устройства:
 struct SmartSocket {
+    name: String,
     on: bool,
 }
 struct SmartThermometer {
+    name: String,
     on: bool,
     temperature: f32,
 }
 
 impl SmartDeviceStateInfo for SmartSocket {
+    fn get_name(&self) -> &String {
+        &self.name
+    }
+
     fn get_state_info(&self) -> String {
         if self.on {
             "состояние: включен".to_string()
@@ -78,9 +89,16 @@ impl SmartDeviceStateInfo for SmartSocket {
 }
 
 impl SmartDeviceStateInfo for SmartThermometer {
+    fn get_name(&self) -> &String {
+        &self.name
+    }
+
     fn get_state_info(&self) -> String {
         if self.on {
-            format!("состояние: включен; температура: {}", self.temperature)
+            format!(
+                "состояние: включен; температура: {} градусов",
+                self.temperature
+            )
         } else {
             "состояние: выключен".to_string()
         }
@@ -100,39 +118,61 @@ struct BorrowingDeviceInfoProvider<'a, 'b> {
 // todo: реализация трейта `DeviceInfoProvider` для поставщиков информации
 impl DeviceInfoProvider for OwningDeviceInfoProvider {
     fn get_device_state(&self, room: &str, device: &str) -> String {
-        format!(
-            "Комната: {}; устройство: {}; {}\n",
-            room,
-            device,
-            self.socket.get_state_info()
-        )
+        if device == self.socket.get_name() {
+            format!(
+                "Комната: '{}'; устройство: '{}'; {}",
+                room,
+                self.socket.get_name(),
+                self.socket.get_state_info()
+            )
+        } else {
+            format!(
+                "Ошибка: неизвестное устройство '{}' в комнате '{}'",
+                device, room,
+            )
+        }
     }
 }
 
 impl<'a, 'b> DeviceInfoProvider for BorrowingDeviceInfoProvider<'a, 'b> {
     fn get_device_state(&self, room: &str, device: &str) -> String {
         let mut report = "".to_string();
-        report.push_str(&format!(
-            "Комната: {}; устройство: {}; {}\n",
-            room,
-            device,
-            self.socket.get_state_info()
-        ));
-        report.push_str(&format!(
-            "Комната: {}; устройство: {}; {}\n",
-            room,
-            device,
-            self.thermo.get_state_info()
-        ));
+        if device == self.socket.get_name() {
+            report.push_str(&format!(
+                "Комната: '{}'; устройство: '{}'; {}",
+                room,
+                self.socket.get_name(),
+                self.socket.get_state_info()
+            ));
+        } else if device == self.thermo.get_name() {
+            report.push_str(&format!(
+                "Комната: '{}'; устройство: '{}'; {}",
+                room,
+                self.thermo.get_name(),
+                self.thermo.get_state_info()
+            ));
+        } else {
+            report.push_str(&format!(
+                "Ошибка: неизвестное устройство '{}' в комнате '{}'",
+                device, room,
+            ));
+        }
         report
     }
 }
 
 fn main() {
     // Инициализация устройств
-    let socket1 = SmartSocket { on: true };
-    let socket2 = SmartSocket { on: false };
+    let socket1 = SmartSocket {
+        name: "Розетка для чайника".to_string(),
+        on: true,
+    };
+    let socket2 = SmartSocket {
+        name: "Розетка для светильника".to_string(),
+        on: false,
+    };
     let thermo = SmartThermometer {
+        name: "Термометр детский".to_string(),
         on: true,
         temperature: 36.6,
     };
@@ -154,6 +194,6 @@ fn main() {
     let report2 = house.create_report(&info_provider_2);
 
     // Выводим отчёты на экран:
-    println!("Report #1: {report1}");
-    println!("Report #2: {report2}");
+    println!("Report #1:\n{report1}");
+    println!("Report #2:\n{report2}");
 }
