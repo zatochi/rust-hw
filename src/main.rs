@@ -3,15 +3,43 @@ struct Device {
     name: String,
 }
 
+
+struct SmartSocket;
+
+impl SmartSocket {
+    fn on(&self) {
+        todo!();
+    }
+
+    fn off(&self) {
+        todo!();
+    }
+
+    fn get_power_consumption(&self) -> f32 {
+        todo!()
+    }
+}
+
+struct Thermometer;
+
+impl Thermometer {
+    fn get_temperature(&self) -> f32 {
+        todo!()
+    }
+}
+
+
 struct Room {
     name: String,
     devices: Vec<Device>,
 }
 
+
 struct House {
     name: String,
     rooms: Vec<Room>,
 }
+
 
 impl House {
     fn get_rooms(&self) -> Vec<String> {
