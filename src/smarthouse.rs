@@ -2,30 +2,35 @@ use crate::smartdevices::SmartDevice;
 
 pub struct SmartHouse {
     /* todo: данные умного дома */
-    rooms: [String; 2],
+    rooms: Vec<String>,
 }
 
 impl SmartHouse {
     pub fn new() -> Self {
         // todo!("реализовать инициализацию дома")
         Self {
-            rooms: ["кухня".to_string(), "спальня".to_string()],
+            rooms: vec!["кухня".to_string(), "спальня".to_string()],
         }
     }
 
-    pub fn get_rooms(&self) -> [String; 2] {
-        // Размер возвращаемого массива можно выбрать самостоятельно
-        // todo!("список комнат");
-        self.rooms.clone()
+    pub fn get_rooms(&self) -> Option<&Vec<String>> {
+        if self.rooms.is_empty() {
+            None
+        } else {
+            Some(&self.rooms)
+        }
     }
 
-    pub fn devices(&self, room: &str) -> [String; 2] {
+    pub fn devices(&self, room: &String) -> Result<Vec<String>, String> {
         // Размер возвращаемого массива можно выбрать самостоятельно
         // todo!("список устройств в комнате `room`")
-        match room {
-            "кухня" => ["Розетка для чайника".to_string(), "?".to_string()],
-            "спальня" => ["Розетка для светильника".to_string(), "Термометр детский".to_string()],
-            _ => panic!("Неизвестное название комнаты: {}", room),
+        match room.as_str() {
+            "кухня" => Ok(vec!["Розетка для чайника".to_string(), "?".to_string()]),
+            "спальня" => Ok(vec![
+                "Розетка для светильника".to_string(),
+                "Термометр детский".to_string(),
+            ]),
+            _ => Err(format!("Неизвестное название комнаты: {}", room)),
         }
     }
 
@@ -36,10 +41,27 @@ impl SmartHouse {
     ) -> String {
         // todo!("перебор комнат и устройств в них для составления отчёта")
         let mut report = "".to_string();
-        for room in self.get_rooms().iter() {
-            for device in self.devices(room).iter() {
-                report.push_str(&device_info_provider.get_device_state(room, device));
-                report.push('\n') // Перевод строки
+        match self.get_rooms() {
+            Some(rooms) => {
+                for room in rooms.iter() {
+                    match self.devices(room) {
+                        Ok(devices) => {
+                            for device in devices.iter() {
+                                match device_info_provider.get_device_state(room, device) {
+                                    Ok(device_status_report) => report.push_str(&device_status_report),
+                                    Err(error) => report.push_str(&error),
+                                }
+                                report.push('\n') // Перевод строки
+                            }
+                        }
+                        Err(error) => {
+                            report.push_str(&format!("Ошибка получения списка устройств: {}", error));
+                        }
+                    }
+                }
+            }
+            None => {
+                report.push_str("В доме нет комнат");
             }
         }
         report
@@ -59,27 +81,30 @@ pub struct BorrowingDeviceInfoProvider<'a, 'b> {
 
 pub trait DeviceInfoProvider {
     // todo: метод, возвращающий состояние устройства по имени комнаты и имени устройства
-    fn get_device_state(&self, room: &str, device: &str) -> String;
+    fn get_device_state(&self, room: &str, device: &str) -> Result<String, String>;
 }
 
 // todo: реализация трейта `DeviceInfoProvider` для поставщиков информации
 impl DeviceInfoProvider for OwningDeviceInfoProvider {
-    fn get_device_state(&self, room: &str, device: &str) -> String {
+    fn get_device_state(&self, room: &str, device: &str) -> Result<String, String> {
         if device == self.socket.get_name() {
-            format!(
+            Ok(format!(
                 "Комната: '{}'; устройство: '{}'; {}",
                 room,
                 self.socket.get_name(),
                 self.socket.get_state_info()
-            )
+            ))
         } else {
-            format!("Ошибка: неизвестное устройство '{}' в комнате '{}'", device, room,)
+            Err(format!(
+                "Ошибка: неизвестное устройство '{}' в комнате '{}'",
+                device, room
+            ))
         }
     }
 }
 
 impl<'a, 'b> DeviceInfoProvider for BorrowingDeviceInfoProvider<'a, 'b> {
-    fn get_device_state(&self, room: &str, device: &str) -> String {
+    fn get_device_state(&self, room: &str, device: &str) -> Result<String, String> {
         let mut report = "".to_string();
         if device == self.socket.get_name() {
             report.push_str(&format!(
@@ -95,13 +120,15 @@ impl<'a, 'b> DeviceInfoProvider for BorrowingDeviceInfoProvider<'a, 'b> {
                 self.thermo.get_name(),
                 self.thermo.get_state_info()
             ));
-        } else {
-            report.push_str(&format!(
-                "Ошибка: неизвестное устройство '{}' в комнате '{}'",
-                device, room,
-            ));
         }
-        report
+        if report.is_empty() {
+            Err(format!(
+                "Ошибка: неизвестное устройство '{}' в комнате '{}'",
+                device, room
+            ))
+        } else {
+            Ok(report)
+        }
     }
 }
 
@@ -112,7 +139,8 @@ mod tests {
     #[test]
     fn general_test() {
         let house = SmartHouse::new();
-        assert_eq!(house.get_rooms().len(), 2);
-        assert_eq!(house.get_rooms().first().unwrap(), "кухня");
+        assert_eq!(house.get_rooms().unwrap().len(), 2);
+        assert_eq!(house.get_rooms().unwrap().first().unwrap(), "кухня");
+        assert_eq!(house.devices(&"not-exist-room".to_string()).is_err(), true);
     }
 }
