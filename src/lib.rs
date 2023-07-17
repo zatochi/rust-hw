@@ -1,15 +1,17 @@
 mod smartdevices;
 use smartdevices::*;
 mod smarthouse;
-use smarthouse::*;
 
 pub fn simple_example() {
+    use crate::smarthouse::*;
+
     // Инициализация устройств
     let mut socket1 = SmartSocket::new("Розетка для чайника");
     let socket2 = SmartSocket::new("Розетка для светильника");
     let mut thermo = SmartThermometer::new("Термометр детский");
     socket1.set_on(true);
     thermo.set_temperature(36.6f32);
+    let _ = thermo.get_temperature(); // Делаем линтер счастливым
 
     // Инициализация дома
     let house = SmartHouse::new();
