@@ -1,16 +1,36 @@
+use std::collections::HashMap;
 use crate::smartdevices::SmartDevice;
 
+
 pub struct SmartHouse {
-    /* todo: данные умного дома */
     rooms: Vec<String>,
+    devices: HashMap<String, Vec<String>>,
 }
 
 impl SmartHouse {
     pub fn new() -> Self {
-        // todo!("реализовать инициализацию дома")
         Self {
-            rooms: vec!["кухня".to_string(), "спальня".to_string()],
+            rooms: Vec::new(),
+            devices: HashMap::new(),
         }
+    }
+
+    pub fn add_room(&mut self, room: &String) -> Result<(), String> {
+        if self.rooms.contains(room) {
+            return Err(format!("Комната с таким названием '{}' уже есть в доме", room));
+        }
+        self.rooms.push(room.clone());
+        self.devices.insert(room.clone(), Vec::new());
+        Ok(())
+    }
+
+    pub fn remove_room(&mut self, room: &String) -> Result<(), String> {
+        if !self.rooms.contains(room) {
+            return Err(format!("Комнаты с таким названием '{}' нет в доме", room));
+        }
+        self.rooms.retain(|x| x != room);
+        self.devices.remove_entry(room).unwrap();
+        Ok(())
     }
 
     pub fn get_rooms(&self) -> Option<&Vec<String>> {
@@ -138,9 +158,27 @@ mod tests {
 
     #[test]
     fn general_test() {
-        let house = SmartHouse::new();
+        let mut house = SmartHouse::new();
+        house.add_room(&"кухня".to_string()).unwrap();
+        house.add_room(&"спальня".to_string()).unwrap();
         assert_eq!(house.get_rooms().unwrap().len(), 2);
         assert_eq!(house.get_rooms().unwrap().first().unwrap(), "кухня");
         assert_eq!(house.devices(&"not-exist-room".to_string()).is_err(), true);
+
+        house.add_device(&"кухня".to_string(),   vec!["Розетка для чайника".to_string(), "?".to_string()]);
+        house.add_device(&"спальня".to_string(), vec![
+                "Розетка для светильника".to_string(),
+                "Термометр детский".to_string(),
+            ]);
+    }
+
+    #[test]
+    fn add_remove_room() {
+        let mut house = SmartHouse::new();
+        let test_room = &"test-room".to_string();
+        assert_eq!(house.add_room(test_room).is_err(), false);
+        assert_eq!(house.get_rooms().unwrap().len(), 1);
+        assert_eq!(house.remove_room(&"not-exist-room".to_string()).is_err(), true);
+        assert_eq!(house.remove_room(test_room).is_err(), false);
     }
 }
